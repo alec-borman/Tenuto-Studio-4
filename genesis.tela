@@ -1,0 +1,123 @@
+domain "tenuto_studio_desktop_ui" "4.0.0" {
+  meta @{
+    name: "Tenuto Studio 4.0: The Bi-Directional Projectional DAW",
+    sprint_id: "TENUTO-4.0-FINAL-SOVEREIGNTY",
+    author: "Alec Borman (Master Builder)",
+    recipient: "Teleportation Matrix",
+    baseline_centroid: "embed:centroid:EP-20-RATIONAL-OSCILLATOR-ACK",
+    target_similarity: 1.0,
+    dimensions: 1024,
+    note: "The Sand Mold is complete. The Skybridge is prepared for decoupling."
+  }
+
+  feature "ui:projectional_webgpu_canvas" {
+    weight: 1.0,
+    target: "src/components/canvas/AdvancedRenderers.ts",
+    description: "The 60 FPS WebGPU projection mapping absolute rational time to the physical X-Axis via Pixi.js.",
+    requirements: ["Must utilize Spatial Hash Grids for 100,000+ event rendering", "No proprietary binary UI state permitted"],
+    dimension_contributions: {
+      "arch:vector_fidelity": 1.0,
+      "arch:performance": 1.0,
+      "arch:determinism": 0.95
+    }
+  }
+
+  feature "ui:topological_mutator" {
+    weight: 1.0,
+    target: "src/components/canvas/TopologicalMutator.ts",
+    description: "Bi-directional editing: Graphical drags are deterministically translated into AST mutations via the Monaco Editor buffer.",
+    requirements: ["Debounced commits onMouseUp", "Optimistic UI transforms via requestAnimationFrame"],
+    dimension_contributions: {
+      "arch:ergonomics": 1.0,
+      "arch:intent_fidelity": 1.0,
+      "arch:grammar_strictness": 0.8
+    }
+  }
+
+  feature "architecture:immutable_command_history" {
+    weight: 0.95,
+    target: "src/editor/CommandHistory.ts",
+    description: "Disk-backed Operational Transform (OT) history stack with O(1) memory footprint via IndexedDB.",
+    requirements: ["Zero memory bloat from binary snapshots", "Structural Git-style AST sharing"],
+    dimension_contributions: {
+      "arch:memory_safety": 1.0,
+      "arch:robustness": 0.95,
+      "arch:sovereignty": 0.8
+    }
+  }
+
+  feature "ai:lance_db_orchestrator" {
+    weight: 0.9,
+    target: "src/components/panels/RagAssistant.tsx",
+    description: "Local WASM-based RAG Copilot executing Semantic Injection and Ghost Patches directly into the WebGPU timeline.",
+    requirements: ["Must render proposed AST patches as translucent Ghost Blocks", "Accepting a patch solidifies the code synchronously"],
+    dimension_contributions: {
+      "arch:rapid_prototyping": 1.0,
+      "arch:ergonomics": 0.95,
+      "arch:decoupling": 0.7
+    }
+  }
+
+  feature "ui:stateless_mixer_and_routing" {
+    weight: 0.9,
+    target: "src/components/mixer/MixerView.tsx",
+    description: "The audio mixer interface projects and mutates the track's meta and Addendum G configuration variables natively as text.",
+    requirements: ["Fader movement seamlessly injects inline CC automation curves", "Sidechain target assignments strictly rewrite the AST string"],
+    dimension_contributions: {
+      "arch:domain_isolation": 1.0,
+      "arch:unification": 0.9
+    }
+  }
+
+  feature "architecture:desktop_os_parity" {
+    weight: 1.0,
+    target: "src/components/layout/Workspace.tsx",
+    description: "PWA File System Access API and Tauri/Electron bridging for native desktop deployment and local AST file-watching.",
+    requirements: ["Bypass the browser sandbox for persistent .ten file saves", "Zero cloud-dependency to launch"],
+    dimension_contributions: {
+      "arch:sovereignty": 1.0,
+      "arch:human_authority": 1.0,
+      "arch:decoupling": 0.9
+    }
+  }
+
+  feature "accessibility:webgpu_shadow_dom" {
+    weight: 0.85,
+    target: "src/components/canvas/AdvancedRenderers.ts",
+    description: "Invisible HTML DOM tree synchronized perfectly behind the WebGPU canvas for WCAG 2.1 AA screen reader compatibility.",
+    requirements: ["Keyboard tab navigation must trigger VoiceOver/NVDA semantic announcements mapping to AST IR"],
+    dimension_contributions: {
+      "arch:unification_tenuto": 1.0,
+      "arch:ergonomics": 0.8
+    }
+  }
+  
+  feature "audio:jit_tcal_streaming" {
+    weight: 0.95,
+    target: "src/audio/AudioEngine.ts",
+    description: "AST-Aware Just-In-Time streaming of high-fidelity open-source soundfonts preventing Blank Canvas Anxiety.",
+    requirements: ["Zero-to-Symphony in <1.2 seconds", "Micro-synth playback fallback while HD audio buffers load from CDN"],
+    dimension_contributions: {
+      "arch:temporal_fidelity": 1.0,
+      "arch:performance": 1.0
+    }
+  }
+
+  sustainability "tenuto_foundation" {
+    domain_name: "Tenuto Studio Desktop",
+    version: "4.0.0",
+    mission: "To permanently abolish the proprietary binary DAW and elevate musical intent to absolute mathematical text truth.",
+    license: "MIT",
+    sponsors: [],
+    roadmap: []
+  }
+
+  deterministic "final_protagonist_shift" {
+    input: [ "src/", "tests/" ],
+    steps: [
+      { assert: "npm run gauntlet exits with code 0" },
+      { verify: "The Skybridge is severed and the local standalone desktop shell executes completely offline." }
+    ],
+    threshold: 0.00
+  }
+}

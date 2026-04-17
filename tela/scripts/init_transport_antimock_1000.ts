@@ -1,0 +1,1 @@
+console.log('init_transport_antimock_1000.ts executed');

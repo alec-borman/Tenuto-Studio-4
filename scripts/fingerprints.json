@@ -1,0 +1,14 @@
+{
+  "src/components/canvas/AdvancedRenderers.ts": {
+    "hash": "ef75b7dfd97f2fc3376efbaef02bc0100adffa4e6b456f2d45794d806f130134",
+    "vectorLength": 11577
+  },
+  "src/state/MultiUserSync.ts": {
+    "hash": "f392ddc2281eaed4de5f65f61b0973c7657b5843e08c7a589dd358bd0c4fbe74",
+    "vectorLength": 1796
+  },
+  "tests/ui/native_canvas_harness.js": {
+    "hash": "a68715aaf7bf99cf89dd5ad9e80894797915d06d795937e551b3abc96659ea42",
+    "vectorLength": 1419
+  }
+}

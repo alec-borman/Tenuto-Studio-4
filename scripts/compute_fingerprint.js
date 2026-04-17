@@ -1,0 +1,29 @@
+import fs from 'fs';
+import crypto from 'crypto';
+
+export function computeFingerprint(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  const content = fs.readFileSync(filePath, 'utf8');
+  // Deterministic mathematical AST-like fingerprinting by normalizing whitespace and structure
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  const hash = crypto.createHash('sha256').update(normalized).digest('hex');
+  return { hash, vectorLength: normalized.length };
+}
+
+// Generate canonical states
+const files = [
+  'src/components/canvas/AdvancedRenderers.ts',
+  'src/state/MultiUserSync.ts',
+  'tests/ui/native_canvas_harness.js'
+];
+
+const fingerprints = {};
+for (const file of files) {
+  if (fs.existsSync(file)) {
+    fingerprints[file] = computeFingerprint(file);
+  }
+}
+
+if (!fs.existsSync('scripts')) fs.mkdirSync('scripts');
+fs.writeFileSync('scripts/fingerprints.json', JSON.stringify(fingerprints, null, 2));
+console.log('Deterministic AST fingerprints computed successfully.');

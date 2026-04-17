@@ -1,0 +1,6 @@
+[
+  "tests/test_engrave_svg.py::TestSVGEngraver::test_bounding_box_intersection",
+  "tests/test_engrave_svg.py::TestSVGEngraver::test_skyline_routing",
+  "tests/test_engrave_svg.py::TestSVGEngraver::test_svg_generation_smufl_unicode",
+  "tests/test_musicxml.py::TestMusicXMLEmitter::test_xml_generation_with_polyphony"
+]
