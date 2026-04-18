@@ -5,6 +5,44 @@ import { languageDef, themeDef, registerHoverProvider, registerInlineCompletionP
 import { audioEngine } from '../../audio/AudioEngine';
 import { Play, Square, Settings, Folder, List, Sliders, Activity, Circle, Repeat, Clock, Pause, Metronome } from 'lucide-react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
+import * as Dialog from '@radix-ui/react-dialog';
+import { useWorkspaceStore } from '../../state/store';
+import { AdvancedRenderer, ASTEvent } from '../canvas/AdvancedRenderers';
+import * as PIXI from 'pixi.js';
+
+const ExportDialog: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Dialog.Root>
+    <Dialog.Trigger asChild>{children}</Dialog.Trigger>
+    <Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 pointer-events-auto" />
+      <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900 border border-slate-800 p-6 rounded text-white z-50">
+        <Dialog.Title className="text-xl font-bold mb-4">Universal Render Dialog</Dialog.Title>
+        <div className="flex flex-col gap-4">
+          <button className="bg-slate-800 p-2 rounded">Audio (WAV/FLAC)</button>
+          <button className="bg-slate-800 p-2 rounded">Stems</button>
+          <button className="bg-slate-800 p-2 rounded">Sheet Music (PDF/MusicXML)</button>
+        </div>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
+);
+
+const SettingsDialog: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Dialog.Root>
+    <Dialog.Trigger asChild>{children}</Dialog.Trigger>
+    <Dialog.Portal>
+      <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 pointer-events-auto" />
+      <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900 border border-slate-800 p-6 rounded text-white z-50">
+        <Dialog.Title className="text-xl font-bold mb-4">Preferences Modal</Dialog.Title>
+        <div className="flex flex-col gap-4">
+          <button className="bg-slate-800 p-2 rounded">standard</button>
+          <button className="bg-slate-800 p-2 rounded">jazz</button>
+          <button className="bg-slate-800 p-2 rounded">dyslexia</button>
+        </div>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
+);
 
 const TopBar: React.FC<{ onPlay: () => void, onStop: () => void, onSave: () => void, isPlaying: boolean }> = ({ onPlay, onStop, onSave, isPlaying }) => (
   <header role="banner" className="col-span-3 row-start-1 h-12 bg-slate-900 border-b border-slate-800 text-slate-300 flex items-center px-4 justify-between select-none">
@@ -76,15 +114,21 @@ const TopBar: React.FC<{ onPlay: () => void, onStop: () => void, onSave: () => v
       >
         SAVE
       </button>
-      <button 
-        className="px-3 h-8 text-xs font-semibold bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white rounded transition-colors"
-        aria-label="Share/Export Menu"
-      >
-        Export
-      </button>
-      <button className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
-        <Settings size={18} />
-      </button>
+
+      <ExportDialog>
+        <button 
+          className="px-3 h-8 text-xs font-semibold bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white rounded transition-colors"
+          aria-label="Share/Export Menu"
+        >
+          Export
+        </button>
+      </ExportDialog>
+
+      <SettingsDialog>
+        <button className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400" aria-label="Settings">
+          <Settings size={18} />
+        </button>
+      </SettingsDialog>
     </div>
   </header>
 );
@@ -109,25 +153,49 @@ const BottomStatusBar: React.FC = () => (
 
 export const Workspace: React.FC = () => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const setAst = useWorkspaceStore(state => state.setAst);
+  const ast = useWorkspaceStore(state => state.ast);
+  const pixiAppRef = useRef<PIXI.Application | null>(null);
+  const rendererRef = useRef<AdvancedRenderer | null>(null);
+  const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
+    workerRef.current = new Worker(new URL('../../compiler/compiler.worker.ts', import.meta.url), { type: 'module' });
+    workerRef.current.onmessage = (e) => {
+      if (e.data?.type === 'AST_COMPILED') {
+         const nodes = e.data.ast;
+         if (nodes && nodes.length > 0) {
+           setAst(nodes[0]);
+         }
+      }
+    };
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, [setAst]);
+
+  useEffect(() => {
+    let timeout: number;
     if (editorRef.current) {
       monaco.languages.register({ id: 'tenuto' });
       monaco.languages.setMonarchTokensProvider('tenuto', languageDef);
       monaco.editor.defineTheme('tenutoTheme', themeDef);
       
-      // LSP Parity
-      registerHoverProvider();
-      registerInlineCompletionProvider({
-        suggest: async (context: string) => {
-          // LanceDB RAG Assistant connection mock
-          if (context.trim().endsWith('def')) {
-            return [' track_01 {}'];
+      try {
+        registerHoverProvider();
+        registerInlineCompletionProvider({
+          suggest: async (context: string) => {
+            if (context.trim().endsWith('def')) {
+              return [' track_01 {}'];
+            }
+            return [];
           }
-          return [];
-        }
-      });
+        });
+      } catch (e) {
+        // ignore multiple registrations
+      }
 
       const editor = monaco.editor.create(editorRef.current, {
         value: 'tenuto "4.0" {\n  \n}',
@@ -140,11 +208,14 @@ export const Workspace: React.FC = () => {
         automaticLayout: true,
       });
 
-      let timeout: number;
+      // Parse initial via Web Worker
+      workerRef.current?.postMessage(editor.getValue());
+
       editor.onDidChangeModelContent(() => {
         window.clearTimeout(timeout);
         timeout = window.setTimeout(() => {
-          // Send to Web Worker for compilation/diagnostics
+          const val = editor.getValue();
+          workerRef.current?.postMessage(val);
         }, 200);
       });
 
@@ -155,8 +226,69 @@ export const Workspace: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    
+    const initPixi = async () => {
+      const app = new PIXI.Application();
+      await app.init({
+        canvas: canvasRef.current!,
+        resizeTo: canvasRef.current!.parentElement!,
+        backgroundAlpha: 0,
+      });
+      pixiAppRef.current = app;
+      rendererRef.current = new AdvancedRenderer(app.stage);
+      
+      if (ast) {
+        const event: ASTEvent = {
+           id: "0",
+           type: 'note',
+           style: 'standard',
+           pitch: ast.freq ? 69 + 12 * Math.log2(ast.freq / 440) : 60,
+           startTime: ast.start,
+           duration: ast.duration || 1
+        };
+        const viewport = { x: 0, y: 0, width: app.screen.width, height: app.screen.height };
+        rendererRef.current.renderEvents([event], 100, viewport);
+      }
+    };
+    
+    initPixi();
+    
+    return () => {
+      if (pixiAppRef.current) {
+        pixiAppRef.current.destroy();
+      }
+    };
+  }, []); // Run once on mount
+
+  useEffect(() => {
+    // Watch for AST updates
+    if (rendererRef.current && pixiAppRef.current && ast) {
+      const event: ASTEvent = {
+        id: "0",
+        type: 'note',
+        style: 'standard',
+        pitch: ast.freq ? 69 + 12 * Math.log2(ast.freq / 440) : 60,
+        startTime: ast.start,
+        duration: ast.duration || 1
+      };
+      
+      const viewport = { x: 0, y: 0, width: pixiAppRef.current.screen.width, height: pixiAppRef.current.screen.height };
+      try {
+        rendererRef.current.renderEvents([event], 100, viewport);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [ast]);
+
   const handlePlay = async () => {
+    await audioEngine.initialize();
     await audioEngine.play();
+    if (ast) {
+        audioEngine.playMicroSynthFallback(ast);
+    }
     setIsPlaying(true);
   };
 
@@ -168,7 +300,6 @@ export const Workspace: React.FC = () => {
   const handleOpenWorkspace = async () => {
     try {
       if ('showDirectoryPicker' in window) {
-        // Environment Parity: Fallback to File System Access API in PWA
         const dirHandle = await (window as any).showDirectoryPicker();
         console.log("Workspace directory loaded via PWA API:", dirHandle.name);
       } else {
@@ -183,17 +314,11 @@ export const Workspace: React.FC = () => {
     try {
       if ('showSaveFilePicker' in window) {
         const fileHandle = await (window as any).showSaveFilePicker({
-          types: [{
-            description: 'Tenuto AST Script',
-            accept: {'text/plain': ['.ten']},
-          }],
+           types: [{ description: 'Tenuto AST', accept: {'text/plain': ['.ten']} }]
         });
         const writable = await fileHandle.createWritable();
         await writable.write("tenuto '4.0' {\n  \n}"); 
         await writable.close();
-        console.log("File saved via PWA API:", fileHandle.name);
-      } else {
-        console.warn("File System Access API is not supported in this browser.");
       }
     } catch (error) {
       console.error("User cancelled or API failed:", error);
@@ -202,19 +327,14 @@ export const Workspace: React.FC = () => {
 
   return (
     <div className="grid h-screen w-screen bg-slate-950 text-slate-200 overflow-hidden" style={{ gridTemplateRows: '3rem 1fr 2rem', gridTemplateColumns: '16rem 1fr 20rem' }}>
-      
-      {/* 3rem = h-12 */}
       <TopBar onPlay={handlePlay} onStop={handleStop} onSave={handleSaveWorkspace} isPlaying={isPlaying} />
       
-      {/* 16rem = w-64 */}
       <aside role="complementary" className="col-start-1 row-start-2 bg-slate-900 border-r border-slate-800 flex flex-col min-h-0">
         <div className="h-10 border-b border-slate-800 flex items-center justify-between px-4 text-xs font-semibold tracking-wider text-slate-400 uppercase shrink-0">
           <div className="flex items-center">
             <Folder size={14} className="mr-2" /> Explorer
           </div>
-          <button onClick={handleOpenWorkspace} className="hover:text-white transition-colors" title="Open Local Workspace">
-            +
-          </button>
+          <button onClick={handleOpenWorkspace} className="hover:text-white transition-colors" title="Open Local Workspace">+</button>
         </div>
         <div className="flex-1 p-4 text-sm text-slate-500 overflow-y-auto">
           <ul className="space-y-1">
@@ -223,7 +343,6 @@ export const Workspace: React.FC = () => {
         </div>
       </aside>
       
-      {/* 1fr = flex-1 */}
       <main role="main" className="col-start-2 row-start-2 bg-slate-950 flex flex-col min-h-0 w-full h-full relative">
         <PanelGroup orientation="vertical" className="w-full h-full absolute inset-0">
           <Panel defaultSize={60} minSize={20} className="relative flex flex-col min-h-0 w-full h-full">
@@ -234,21 +353,18 @@ export const Workspace: React.FC = () => {
               <div className="absolute inset-0" ref={editorRef}></div>
             </div>
           </Panel>
-          
           <PanelResizeHandle className="h-1 bg-slate-800 hover:bg-emerald-500/50 transition-colors cursor-row-resize active:bg-emerald-500 z-10" />
-          
           <Panel defaultSize={40} minSize={20} className="bg-slate-950 flex flex-col min-h-0 w-full h-full">
             <div className="h-10 bg-slate-900 border-b border-slate-800 flex items-center px-4 text-xs text-slate-400 shrink-0">
               <Activity size={14} className="mr-2" /> WebGPU Canvas
             </div>
-            <div className="flex-1 flex items-center justify-center overflow-hidden relative">
-                <canvas id="primary-webgpu-canvas" className="w-full h-full object-contain" />
+            <div className="flex-1 overflow-hidden relative">
+                <canvas ref={canvasRef} id="primary-webgpu-canvas" className="w-full h-full block" />
             </div>
           </Panel>
         </PanelGroup>
       </main>
       
-      {/* 20rem = w-80 */}
       <aside role="complementary" className="col-start-3 row-start-2 bg-slate-900 border-l border-slate-800 flex flex-col min-h-0">
         <div className="h-10 border-b border-slate-800 flex items-center px-4 text-xs font-semibold tracking-wider text-slate-400 uppercase shrink-0">
           <Sliders size={14} className="mr-2" /> Inspector
@@ -256,13 +372,12 @@ export const Workspace: React.FC = () => {
         <div className="flex-1 p-4 text-sm text-slate-500 overflow-y-auto">
           <div className="flex flex-col gap-4">
              <div className="text-xs font-mono text-slate-400 border border-slate-800 p-2 rounded bg-slate-950">
-                AST Node: None Selected
+                AST Node: {ast ? ast.type : 'None Selected'}
              </div>
           </div>
         </div>
       </aside>
       
-      {/* 2rem = h-8 */}
       <BottomStatusBar />
     </div>
   );

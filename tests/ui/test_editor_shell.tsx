@@ -1,9 +1,9 @@
 import { test, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { Workspace } from '../../src/components/layout/Workspace';
 
-test('instantiates physical resizable panels with correct ARIA roles', () => {
+test('instantiates physical resizable panels with correct ARIA roles', async () => {
     const { container } = render(<Workspace />);
 
     // Top Bar -> role="banner"
@@ -46,4 +46,23 @@ test('instantiates physical resizable panels with correct ARIA roles', () => {
     // Asserting the exact string for Tempo and Time Signature
     expect(screen.getByText('120.0 BPM')).toBeInTheDocument();
     expect(screen.getByText('4/4')).toBeInTheDocument();
+
+    // TENUTO-STEEL-1051 Modal Matrix Assertions
+    const exportBtn = screen.getByRole('button', { name: "Share/Export Menu" });
+    fireEvent.click(exportBtn);
+    let dialogs = await screen.findAllByRole('dialog');
+    expect(dialogs.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Universal Render Dialog')).toBeInTheDocument();
+
+    // Close the dialog using escape
+    fireEvent.keyDown(dialogs[0], { key: 'Escape', code: 'Escape' });
+    await waitFor(() => {
+        expect(screen.queryByText('Universal Render Dialog')).not.toBeInTheDocument();
+    });
+
+    const settingsBtn = screen.getByRole('button', { name: "Settings" });
+    fireEvent.click(settingsBtn);
+    dialogs = await screen.findAllByRole('dialog');
+    expect(dialogs.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Preferences Modal')).toBeInTheDocument();
 });
