@@ -96,6 +96,7 @@ export class AdvancedRenderer {
   public trackHeaderGraphics: PIXI.Graphics;
   public shadowContainer: HTMLElement;
   public spatialGrid: SpatialHashGrid;
+  private instancedMesh: PIXI.Mesh | null = null;
 
   // Renderers interact with click events
   public interactiveAreas: PIXI.Container;
@@ -201,6 +202,57 @@ export class AdvancedRenderer {
             }
         }
     }
+  }
+
+  public renderInstancedBinary(buffer: ArrayBuffer, numEvents: number) {
+    if (this.instancedMesh) {
+      this.container.removeChild(this.instancedMesh);
+      this.instancedMesh.destroy(true);
+      this.instancedMesh = null;
+    }
+
+    if (numEvents === 0) return;
+
+    // Base primitive: 1x1 Unit Square
+    const baseGeometry = new PIXI.Geometry()
+      .addAttribute('aVertexPosition', [0,0, 1,0, 1,1, 0,1], 2)
+      .addIndex([0, 1, 2, 0, 2, 3]);
+
+    // Consume the Pyodide ArrayBuffer natively. Offset 4 skips the header. Stride is 20 bytes.
+    const instanceBuffer = new PIXI.Buffer(buffer);
+
+    baseGeometry.addAttribute('aLogicalStart', instanceBuffer, 1, false, PIXI.TYPES.FLOAT, 20, 4, true);
+    baseGeometry.addAttribute('aDuration', instanceBuffer, 1, false, PIXI.TYPES.FLOAT, 20, 8, true);
+    baseGeometry.addAttribute('aPitch', instanceBuffer, 1, false, PIXI.TYPES.FLOAT, 20, 12, true);
+    // Uint32 text topological offsets are mapped at byte 16 and 20, accessible to UI raycasting but skipped by this visual shader.
+
+    const shader = PIXI.Shader.from(`
+      in vec2 aVertexPosition;
+      in float aLogicalStart;
+      in float aDuration;
+      in float aPitch;
+      
+      uniform mat3 projectionMatrix;
+      uniform mat3 translationMatrix;
+
+      void main() {
+          float x = aLogicalStart * 100.0;
+          float w = aDuration * 100.0;
+          float y = (127.0 - aPitch) * 10.0;
+          
+          vec2 pos = vec2(x + (aVertexPosition.x * w), y + (aVertexPosition.y * 10.0));
+          gl_Position = vec4((projectionMatrix * translationMatrix * vec3(pos, 1.0)).xy, 0.0, 1.0);
+      }
+    `, `
+      out vec4 finalColor;
+      void main() {
+          finalColor = vec4(0.23, 0.51, 0.96, 1.0); // 0x3b82f6 equivalent
+      }
+    `);
+
+    this.instancedMesh = new PIXI.Mesh({ geometry: baseGeometry, shader });
+    this.instancedMesh.size = numEvents;
+    this.container.addChild(this.instancedMesh);
   }
 
   public renderEvents(events: ASTEvent[], pixelsPerQuarterNote: number = 100, viewport?: Viewport, zoomLevel: number = 1.0) {

@@ -58,6 +58,7 @@ if "/" not in sys.path:
     // Bind the compilation harness 
     await self.pyodide.runPythonAsync(`
 import array
+import struct
 from src.compiler.parser import parse
 from src.compiler.inference import RationalEngine
 
@@ -68,15 +69,26 @@ def compile_to_binary(raw_source):
     # Stub for traversal logic to prove the binary transfer protocol.
     engine.process_token(pitch_class="C", octave=4)
     
-    # PHYSICAL FIX 3: Pack into a flat 32-bit float array. O(1) allocation overhead.
-    buf = array.array('f')
-    buf.append(float(len(engine.events))) # Header: Number of events
+    # PHYSICAL FIX 3: Pack heterogeneously. 3 Floats, 2 Uint32s.
+    event_struct = struct.Struct('<fffII')
+    binary_data = bytearray()
+    
+    binary_data.extend(struct.pack('<f', float(len(engine.events)))) # Header: Number of events
     
     for e in engine.events:
         pitch_midi = 60.0 # Calculate actual midi from e.pitch
-        buf.extend([float(e.logical_start), float(e.logical_duration), pitch_midi, float(e.velocity)])
+        token_offset = 0 # Topological mapping stub
+        token_length = 3 # Topological mapping stub
+        
+        binary_data.extend(event_struct.pack(
+            float(e.logical_start), 
+            float(e.logical_duration), 
+            float(pitch_midi), 
+            int(token_offset), 
+            int(token_length)
+        ))
     
-    return memoryview(buf) # Return direct pointer to WASM memory
+    return memoryview(binary_data) # Return direct pointer to WASM memory
     `);
     
     isReady = true;
