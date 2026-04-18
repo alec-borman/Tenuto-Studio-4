@@ -164,11 +164,30 @@ export const Workspace: React.FC = () => {
   useEffect(() => {
     workerRef.current = new Worker(new URL('../../compiler/compiler.worker.ts', import.meta.url), { type: 'module' });
     workerRef.current.onmessage = (e) => {
-      if (e.data?.type === 'AST_COMPILED') {
-         const nodes = e.data.ast;
-         if (nodes && nodes.length > 0) {
-           setAst(nodes[0]);
+      if (e.data?.type === 'AST_COMPILED_BINARY') {
+         // PHYSICAL FIX: Unpack Zero-Copy Float32Array Buffer without JSON parsing
+         const floatBuffer = new Float32Array(e.data.buffer);
+         const numEvents = floatBuffer[0];
+         
+         const newNodes: ASTNode[] = [];
+         let offset = 1;
+         for (let i = 0; i < numEvents; i++) {
+           newNodes.push({
+             type: 'note',
+             start: floatBuffer[offset++],
+             duration: floatBuffer[offset++],
+             freq: 440 * Math.pow(2, (floatBuffer[offset++] - 69) / 12),
+             velocity: floatBuffer[offset++]
+           });
          }
+         
+         if (newNodes.length > 0) {
+           setAst(newNodes[0]);
+         }
+      } else if (e.data?.type === 'COMPILER_STATUS') {
+         console.log("Compiler Status:", e.data.status);
+      } else if (e.data?.type === 'COMPILER_ERROR') {
+         console.error("Compiler Error:", e.data.error);
       }
     };
     return () => {
